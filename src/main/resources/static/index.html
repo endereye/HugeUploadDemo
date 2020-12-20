@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>大文件上传与查看</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/semantic-ui@2.4.2/dist/semantic.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/semantic-ui@2.4.2/dist/semantic.js"></script>
+    <script src="js/index.js"></script>
+    <style>
+        .ui.tab {
+            width: 100vw;
+            height: 100vh;
+            padding-left: 120px !important;
+            padding-right: 20px !important;
+        }
+
+        /*noinspection CssUnusedSymbol*/
+        .ui.tab.active {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .special tbody td > div {
+            display: flex;
+            height: 200px;
+            overflow: auto;
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .special tbody td div div {
+            margin: auto;
+        }
+    </style>
+</head>
+<body>
+<div class="ui left fixed vertical labeled icon tabular menu">
+    <a class="item" data-tab="access">
+        <i class="table icon"></i>查看数据
+    </a>
+    <a class="item" data-tab="upload">
+        <i class="cloud upload icon"></i>上传文件
+    </a>
+</div>
+<div class="ui right attached tab segment" data-tab="access">
+    <div style="margin-top: 1rem; overflow-x: scroll; overflow-y: scroll;">
+        <table class="ui selectable celled special table" style="border-bottom: none; border-right: none;">
+            <thead>
+            <tr></tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+    <div style="margin-bottom: 1rem; text-align: center;">
+        <button class="ui left floated basic icon button">
+            <i class="filter icon"></i>
+        </button>
+        <div class="ui pagination menu"></div>
+    </div>
+</div>
+<div class="ui right attached tab segment" data-tab="upload">
+    <input id="upload-input"
+           onchange="upload.doUpload($(this));"
+           style="width: 0; height: 0; opacity: 0; overflow: hidden; position: absolute; z-index: -1;"
+           type="file"/>
+    <label for="upload-input" class="ui button">
+        <i class="ui cloud upload icon"></i>
+    </label>
+    <h1 class="ui header">服务器状态</h1>
+    <div class="ui indicating progress" id="server-status">
+        <div class="bar">
+            <div class="progress"></div>
+        </div>
+        <div class="label"></div>
+    </div>
+    <h1 class="ui header">上传记录</h1>
+    <table class="ui selectable fixed very basic table">
+        <thead>
+        <tr>
+            <th></th>
+            <th>文件名</th>
+            <th>上传时间</th>
+            <th>状态</th>
+        </tr>
+        </thead>
+        <tbody id="upload-display"></tbody>
+    </table>
+</div>
+<div class="ui flowing popup" style="width: 400px;">
+    <div class="header">筛选</div>
+    <div class="ui divider"></div>
+    <div class="ui form" style="max-height: 60vh; overflow: auto;"></div>
+</div>
+</body>
+</html>
