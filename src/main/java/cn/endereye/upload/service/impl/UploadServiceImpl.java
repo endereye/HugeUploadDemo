@@ -1,6 +1,6 @@
 package cn.endereye.upload.service.impl;
 
-import cn.endereye.upload.entity.Status;
+import cn.endereye.upload.entity.File;
 import cn.endereye.upload.service.UploadService;
 import cn.endereye.upload.worker.Master;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,7 +16,7 @@ public class UploadServiceImpl implements UploadService {
     private Master master;
 
     @Override
-    public Status upload(String name, InputStream inputStream) throws IOException {
+    public File upload(String name, InputStream inputStream) throws IOException {
         return master.addWorkbook(name, inputStream);
     }
 }

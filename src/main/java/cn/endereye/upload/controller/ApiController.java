@@ -1,7 +1,7 @@
 package cn.endereye.upload.controller;
 
 import cn.endereye.upload.entity.Entity;
-import cn.endereye.upload.entity.Status;
+import cn.endereye.upload.entity.File;
 import cn.endereye.upload.service.AccessService;
 import cn.endereye.upload.service.StatusService;
 import cn.endereye.upload.service.UploadService;
@@ -46,39 +46,32 @@ public class ApiController {
     }
 
     @RequestMapping(value = "/status", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
-    public String status() {
+    public String status(@RequestParam(required = false) Integer uuid) {
         final StringBuilder jsonBuilder = new StringBuilder();
-        int                 finish      = 0;
-        int                 remain      = 0;
 
-        jsonBuilder.append("{\"data\":[");
-        for (final Status status : statusService.getStatuses()) {
-            jsonBuilder.append("{\"uuid\":").append(status.getUuid())
-                       .append(",\"name\":\"").append(status.getName()).append('"')
-                       .append(",\"time\":\"").append(status.getTime()).append('"')
-                       .append(",\"finish\":").append(status.getFinishCount())
-                       .append(",\"remain\":").append(status.getRemainCount())
-                       .append("},");
-            finish += status.getFinishCount();
-            remain += status.getRemainCount();
+        if (uuid != null) {
+            final File file = statusService.getStatus(uuid);
+            jsonBuilder.append("{\"uuid\":").append(file.getUuid())
+                       .append(",\"name\":\"").append(file.getName()).append('"')
+                       .append(",\"time\":\"").append(file.getTime()).append('"')
+                       .append(",\"finish\":").append(file.getFinishCount())
+                       .append(",\"remain\":").append(file.getRemainCount())
+                       .append('}');
+        } else {
+            jsonBuilder.append("{\"finish\":").append(statusService.getGlobalFinishCount())
+                       .append(",\"remain\":").append(statusService.getGlobalRemainCount())
+                       .append('}');
         }
-        if (jsonBuilder.charAt(jsonBuilder.length() - 1) != '[')
-            jsonBuilder.setLength(jsonBuilder.length() - 1); // remove the last comma
-        jsonBuilder.append("],\"finish\":")
-                   .append(finish)
-                   .append(",\"remain\":")
-                   .append(remain)
-                   .append('}');
 
         return jsonBuilder.toString();
     }
 
     @RequestMapping(value = "/upload", method = RequestMethod.POST, produces = MediaType.APPLICATION_JSON_VALUE)
     public String upload(@RequestParam MultipartFile file) throws IOException {
-        final Status status = uploadService.upload(file.getOriginalFilename(), file.getInputStream());
-        return "{\"uuid\":" + status.getUuid() +
-               ",\"name\":\"" + status.getName() + "\"" +
-               ",\"time\":\"" + status.getTime() + "\"" +
-               ",\"size\":" + (status.getRemainCount() + status.getFinishCount()) + "}";
+        final File fileInfo = uploadService.upload(file.getOriginalFilename(), file.getInputStream());
+        return "{\"uuid\":" + fileInfo.getUuid() +
+               ",\"name\":\"" + fileInfo.getName() + "\"" +
+               ",\"time\":\"" + fileInfo.getTime() + "\"" +
+               ",\"size\":" + (fileInfo.getRemainCount() + fileInfo.getFinishCount()) + "}";
     }
 }

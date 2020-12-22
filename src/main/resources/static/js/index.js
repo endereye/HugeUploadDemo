@@ -87,20 +87,46 @@ const access = (function () {
 })();
 
 const upload = (function () {
-    const progress = {};
-
     const doUpload = function (container) {
         for (let i = 0; i < container[0].files.length; i++) {
             const form = new FormData();
             form.append("file", container[0].files[i]);
+            const prog = $('<div class="ui indicating progress">' +
+                           '    <div class="bar"><div class="progress"></div></div>' +
+                           '    <div class="label"></div>' +
+                           '</div>');
+            prog.progress({
+                total: 100,
+                value: 0,
+            });
             const elem = $(`<tr>
                                 <td class="uuid"></td>
                                 <td>${container[0].files[i].name}</td>
                                 <td class="time"></td>
-                                <td class="stat">正在上传</td>
+                                <td class="stat"></td>
                             </tr>`);
+            elem.children('.stat').append(prog);
             $('#upload-display').prepend(elem);
+            let timer;
+            // noinspection JSUnusedGlobalSymbols
             $.ajax({
+                xhr        : function () {
+                    const xhr = new window.XMLHttpRequest();
+                    xhr.upload.addEventListener('progress', function (event) {
+                        if (event.lengthComputable) {
+                            prog.progress('set total', event.total * 2);
+                            prog.progress('set label', '正在上传');
+                            prog.progress('set progress', event.loaded);
+                            if (event.loaded === event.total) {
+                                timer = setInterval(function () {
+                                    prog.progress('set progress', prog.progress('get value') + 1000000);
+                                }, 1000);
+                            }
+                        }
+                        console.log(event);
+                    }, false);
+                    return xhr;
+                },
                 url        : '/api/upload',
                 data       : form,
                 cache      : false,
@@ -108,50 +134,48 @@ const upload = (function () {
                 processData: false,
                 method     : 'POST',
             }).done(function (data) {
-                const prog = $('<div class="ui indicating progress"><div class="bar"><div class="progress"></div></div></div>')
-                progress[data.uuid] = prog;
-
+                clearInterval(timer);
+                prog.progress('set total', data.size);
+                prog.progress('set progress', 0);
+                prog.progress('set label', '正在处理');
+                prog.progress('remove success');
                 elem.children('.uuid').html(data.uuid);
                 elem.children('.time').html(data.time);
-                prog.progress({
-                    total: data.size,
-                    value: 0,
-                });
-
-                console.log(data);
-                elem.children('.stat').html(prog);
+                timer = setInterval(function () {
+                    $.get(`/api/status?uuid=${data.uuid}`)
+                     .done(function (data) {
+                         prog.progress('set progress', data.finish);
+                         if (data['remain'] === 0) {
+                             prog.progress('set success');
+                             prog.progress('set label', '完成');
+                             clearInterval(timer);
+                         }
+                     });
+                }, 1000);
             }).fail(function () {
-                elem.addClass('error').children('.stat').html('上传失败');
+                prog.progress('set error');
+                prog.progress('set label', '上传失败');
+                clearInterval(timer);
             });
         }
     };
 
-    setInterval(function () {
-        $.get('/api/status')
-         .done(function (data) {
-             const uuids = new Set();
-             $.each(data.data, (_, task) => {
-                 if (progress.hasOwnProperty(task.uuid)) {
-                     progress[task.uuid].progress('set progress', task.finish);
-                     uuids.add(task.uuid);
+    $(document).ready(function () {
+        const prog = $('#server-upload');
+        setInterval(function () {
+            $.get('/api/status')
+             .done(function (data) {
+                 if (data['remain'] === 0) {
+                     prog.progress('set success');
+                     prog.progress('set label', '就绪');
+                 } else {
+                     prog.progress('set total', data.finish + data['remain']);
+                     prog.progress('set progress', data.finish);
+                     prog.progress('set label', `正在处理 ${data.finish} / ${data.finish + data['remain']}`)
                  }
-             });
-             $.each(progress, (uuid, elem) => {
-                 if (!uuids.has(Number(uuid))) {
-                     elem.progress('complete');
-                 }
-             });
-             const server = $('#server-status');
-             if (data['remain'] === 0) {
-                 server.progress('set label', '就绪');
-                 server.progress('complete');
-             } else {
-                 server.progress('set total', data['remain'] + data['finish']);
-                 server.progress('set progress', data['finish']);
-                 server.progress('set label', `剩余${data.data.length}个文件共${data['remain']}条记录`);
-             }
-         })
-    }, 1500);
+             })
+        }, 2000);
+    });
 
     return {
         doUpload: doUpload,
@@ -159,6 +183,7 @@ const upload = (function () {
 })();
 
 $(document).ready(function () {
+    // noinspection JSUnresolvedFunction
     $('.tabular.menu .item').tab();
     $('button.left.floated').popup({
         inline    : true,

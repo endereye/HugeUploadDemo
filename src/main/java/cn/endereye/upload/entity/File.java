@@ -3,7 +3,7 @@ package cn.endereye.upload.entity;
 import lombok.Data;
 
 @Data
-public class Status {
+public class File {
     private int    uuid;
     private String name;
     private String time;

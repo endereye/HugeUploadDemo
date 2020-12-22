@@ -1,9 +1,9 @@
 package cn.endereye.upload.worker;
 
-import cn.endereye.upload.entity.Status;
+import cn.endereye.upload.entity.File;
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import org.apache.commons.collections4.list.UnmodifiableList;
+import lombok.Getter;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -17,9 +17,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
-import java.util.List;
 
 @Component
 public class Master implements ApplicationListener<ContextRefreshedEvent> {
@@ -28,20 +28,24 @@ public class Master implements ApplicationListener<ContextRefreshedEvent> {
 
     @Data
     @AllArgsConstructor
-    public static class Single {
-        private Status status;
+    public static class Task {
+        private File   upload;
         private Object object;
     }
 
-    private final LinkedList<Thread> threads  = new LinkedList<>();
-    private final LinkedList<Worker> workers  = new LinkedList<>();
-    private final LinkedList<Single> singles  = new LinkedList<>();
-    private final LinkedList<Status> statuses = new LinkedList<>();
+    private final LinkedList<Thread> threads = new LinkedList<>();
+    private final LinkedList<Worker> workers = new LinkedList<>();
+
+    private final LinkedList<Task>       tasks = new LinkedList<>();
+    private final HashMap<Integer, File> files = new HashMap<>();
+
+    @Getter
+    private final File globalFile = new File();
 
     @Override
     public void onApplicationEvent(ContextRefreshedEvent event) {
         for (int i = 0; i < WORKERS; i++) {
-            final Worker worker = new Worker(singles);
+            final Worker worker = new Worker(tasks, globalFile);
             final Thread thread = new Thread(worker);
             thread.start();
             workers.addLast(worker);
@@ -49,7 +53,7 @@ public class Master implements ApplicationListener<ContextRefreshedEvent> {
         }
     }
 
-    public Status addWorkbook(String name, InputStream inputStream) throws IOException {
+    public File addWorkbook(String name, InputStream inputStream) throws IOException {
         Workbook workbook;
         try {
             workbook = new XSSFWorkbook(inputStream);
@@ -58,47 +62,57 @@ public class Master implements ApplicationListener<ContextRefreshedEvent> {
         }
         final Sheet spreadsheet = workbook.getSheetAt(0);
 
-        final boolean notify = singles.isEmpty();
-        final Status  status = new Status();
+        final boolean notify = tasks.isEmpty();
+        final File    file   = new File();
 
-        status.setUuid(System.identityHashCode(status));
-        status.setName(name);
-        status.setTime(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").format(LocalDateTime.now()));
-        status.setFinishCount(0);
-        status.setRemainCount(spreadsheet.getLastRowNum() - spreadsheet.getFirstRowNum());
+        file.setUuid(System.identityHashCode(file));
+        file.setName(name);
+        file.setTime(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").format(LocalDateTime.now()));
+        file.setFinishCount(0);
+        file.setRemainCount(spreadsheet.getLastRowNum() - spreadsheet.getFirstRowNum());
 
-        synchronized (singles) {
+        if (notify) {
+            boolean clear = true;
+            for (final Worker worker : workers) {
+                if (!worker.isSleep()) {
+                    clear = false;
+                    break;
+                }
+            }
+            if (clear) {
+                globalFile.setFinishCount(0);
+                globalFile.setRemainCount(0);
+            }
+        }
+
+        globalFile.setRemainCount(globalFile.getRemainCount() + file.getRemainCount());
+
+        synchronized (tasks) {
             final Iterator<Row> iter = spreadsheet.rowIterator();
             iter.next();
-            iter.forEachRemaining(row -> singles.addLast(new Single(status, row)));
+            iter.forEachRemaining(row -> tasks.addLast(new Task(file, row)));
             if (notify)
-                singles.notifyAll();
+                tasks.notifyAll();
         }
-        synchronized (statuses) {
-            statuses.addLast(status);
+        synchronized (files) {
+            files.put(file.getUuid(), file);
         }
 
-        return status;
+        return file;
     }
 
-    public List<Status> getUnfinished() {
-        // Enumerate every status, if its finished, simply drop it; otherwise, move it to the end of the list;
-        synchronized (statuses) {
-            final int size = statuses.size();
-            for (int i = 0; i < size; i++) {
-                final Status status = statuses.removeFirst();
-                if (status.getRemainCount() > 0)
-                    statuses.addLast(status);
-            }
-            return UnmodifiableList.unmodifiableList(statuses);
-        }
+    public File getUnfinishedFile(int uuid) {
+        final File file = files.get(uuid);
+        if (file.getRemainCount() == 0)
+            files.remove(uuid);
+        return file;
     }
 
     public void waitUntilFinish() throws InterruptedException {
         for (final Worker worker : workers)
             worker.setExit(true);
-        synchronized (singles) {
-            singles.notifyAll();
+        synchronized (tasks) {
+            tasks.notifyAll();
         }
         for (final Thread thread : threads)
             thread.join();

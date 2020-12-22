@@ -1,9 +1,11 @@
 package cn.endereye.upload.worker;
 
 import cn.endereye.upload.entity.Entity;
+import cn.endereye.upload.entity.File;
 import cn.endereye.upload.util.Database;
 import com.google.gson.Gson;
 import com.j256.ormlite.dao.DaoManager;
+import lombok.Getter;
 import lombok.Setter;
 import lombok.SneakyThrows;
 import org.apache.poi.ss.usermodel.Cell;
@@ -20,13 +22,18 @@ import java.util.LinkedList;
 public class Worker implements Runnable {
     private static final Logger logger = LoggerFactory.getLogger(Worker.class);
 
-    private final LinkedList<Master.Single> tasks;
-    private final Gson                      gson = new Gson();
+    private final LinkedList<Master.Task> tasks;
+    private final Gson                    gson  = new Gson();
     @Setter
-    private       boolean                   exit = false;
+    private       boolean                 exit  = false;
+    @Getter
+    private       boolean                 sleep = false;
 
-    public Worker(LinkedList<Master.Single> tasks) {
+    private final File globalFile;
+
+    public Worker(LinkedList<Master.Task> tasks, File globalFile) {
         this.tasks = tasks;
+        this.globalFile = globalFile;
     }
 
     @SneakyThrows
@@ -34,10 +41,12 @@ public class Worker implements Runnable {
     public void run() {
         while (!exit || !tasks.isEmpty()) {
             if (tasks.isEmpty()) {
+                sleep = true;
                 logger.info("Worker goes to sleep because nothing to do");
                 synchronized (tasks) {
                     tasks.wait();
                 }
+                sleep = false;
                 logger.info("Worker gets back to work");
             }
             if (!tasks.isEmpty())
@@ -46,11 +55,11 @@ public class Worker implements Runnable {
     }
 
     private void doBatch() {
-        final Master.Single[] rows;
-        final int             size;
+        final Master.Task[] rows;
+        final int           size;
         synchronized (tasks) {
             size = Math.min(Master.BATCHES, tasks.size());
-            rows = new Master.Single[size];
+            rows = new Master.Task[size];
             for (int i = 0; i < size; i++)
                 rows[i] = tasks.removeFirst();
             logger.info(String.format("%d rows retrieved, %d remaining", size, tasks.size()));
@@ -68,13 +77,15 @@ public class Worker implements Runnable {
                 e.printStackTrace();
                 logger.error("Worker failed due to internal exception");
             }
-            for (final Master.Single single : rows)
-                single.getStatus().completeOne();
+            for (final Master.Task task : rows) {
+                task.getUpload().completeOne();
+                globalFile.completeOne();
+            }
         }
     }
 
-    private Entity doSingle(Master.Single single) {
-        final Row current = (Row) single.getObject();
+    private Entity doSingle(Master.Task task) {
+        final Row current = (Row) task.getObject();
         final Row columns = current.getSheet().getRow(0);
 
         final Iterator<Cell>          iterNow    = current.cellIterator();

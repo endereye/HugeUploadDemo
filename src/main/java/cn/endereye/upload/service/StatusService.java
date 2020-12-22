@@ -1,9 +1,11 @@
 package cn.endereye.upload.service;
 
-import cn.endereye.upload.entity.Status;
-
-import java.util.List;
+import cn.endereye.upload.entity.File;
 
 public interface StatusService {
-    List<Status> getStatuses();
+    File getStatus(int uuid);
+
+    int getGlobalFinishCount();
+
+    int getGlobalRemainCount();
 }
