@@ -5,6 +5,7 @@ import cn.endereye.upload.entity.File;
 import cn.endereye.upload.service.AccessService;
 import cn.endereye.upload.service.StatusService;
 import cn.endereye.upload.service.UploadService;
+import org.apache.commons.math3.util.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -15,6 +16,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.sql.SQLException;
+import java.util.List;
 
 @SuppressWarnings("SpringJavaAutowiredFieldsWarningInspection")
 @RestController
@@ -29,13 +31,15 @@ public class ApiController {
 
     @RequestMapping(value = "/access", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
     public String access(@RequestParam int page,
-                         @RequestParam int limit) throws SQLException {
-        final StringBuilder jsonBuilder = new StringBuilder();
+                         @RequestParam int limit,
+                         @RequestParam String search) throws SQLException {
+        final Pair<Integer, List<Entity>> queryResult = accessService.getRecords(page, limit, search);
+        final StringBuilder               jsonBuilder = new StringBuilder();
 
         jsonBuilder.append("{\"rows\":")
-                   .append(accessService.getRecordCount())
+                   .append(queryResult.getFirst())
                    .append(",\"data\":[");
-        for (final Entity entity : accessService.getRecords(page, limit))
+        for (final Entity entity : queryResult.getSecond())
             jsonBuilder.append(entity.getJson())
                        .append(',');
         if (jsonBuilder.charAt(jsonBuilder.length() - 1) != '[')

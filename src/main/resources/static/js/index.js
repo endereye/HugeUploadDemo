@@ -1,5 +1,6 @@
 const access = (function () {
     let limit = 20,
+        cpage = undefined,
         close = new Set(),
         table = undefined;
 
@@ -71,7 +72,8 @@ const access = (function () {
     };
 
     const gotoPage = function (page) {
-        $.get(`/api/access?page=${page}&limit=${limit}`)
+        page ? cpage = page : page = cpage;
+        $.get(`/api/access?page=${page}&limit=${limit}&search=${$('#search input').val()}`)
          .done(data => viewData(page, data));
     };
 
@@ -185,13 +187,21 @@ const upload = (function () {
 $(document).ready(function () {
     // noinspection JSUnresolvedFunction
     $('.tabular.menu .item').tab();
-    $('button.left.floated').popup({
+    $('#btn-filter').popup({
         inline    : true,
         hoverable : true,
         lastResort: true,
-        popup     : $('.popup'),
+        popup     : $('#filter'),
         position  : 'top right',
     });
+    $('#btn-search').popup({
+        inline    : true,
+        hoverable : true,
+        lastResort: true,
+        popup     : $('#search'),
+        position  : 'top right',
+    });
+    $('#search input').blur(() => access.gotoPage());
     $('#server-status').progress();
     $('.tabular.menu .item[data-tab="access"]').click();
     access.gotoPage(1);

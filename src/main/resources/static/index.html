@@ -53,8 +53,11 @@
         </table>
     </div>
     <div style="margin-bottom: 1rem; text-align: center;">
-        <button class="ui left floated basic icon button">
+        <button class="ui left floated basic icon button" id="btn-filter">
             <i class="filter icon"></i>
+        </button>
+        <button class="ui left floated basic icon button" id="btn-search">
+            <i class="search icon"></i>
         </button>
         <div class="ui pagination menu"></div>
     </div>
@@ -87,10 +90,18 @@
         <tbody id="upload-display"></tbody>
     </table>
 </div>
-<div class="ui flowing popup" style="width: 400px;">
+<div class="ui flowing popup" id="filter" style="width: 400px;">
     <div class="header">筛选</div>
     <div class="ui divider"></div>
     <div class="ui form" style="max-height: 60vh; overflow: auto;"></div>
+</div>
+<div class="ui flowing popup" id="search" style="width: 400px;">
+    <div class="header">搜索</div>
+    <div class="ui divider"></div>
+    <div class="ui fluid input">
+        <!--suppress HtmlFormInputWithoutLabel -->
+        <input autocomplete="false" type="text" placeholder="关键字">
+    </div>
 </div>
 </body>
 </html>
