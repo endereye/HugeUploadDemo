@@ -20,12 +20,11 @@ public class AccessServiceImpl implements AccessService {
             final Dao<Entity, Integer>          dao   = DaoManager.createDao(connectionSource, Entity.class);
             final QueryBuilder<Entity, Integer> query = dao.queryBuilder();
 
-            query.offset((long) (page - 1) * limit).limit((long) limit);
             if (!search.isEmpty())
                 query.where().like("json", "%" + search + "%");
 
-            final List<Entity> sec = dao.query(query.prepare());
             final int          fst = (int) query.countOf();
+            final List<Entity> sec = dao.query(query.offset((long) (page - 1) * limit).limit((long) limit).prepare());
 
             return new Pair<>(fst, sec);
         });
